@@ -107,6 +107,9 @@ function AppContent() {
       // Go back to gallery
       setCurrentScreen('gallery');
       
+      // Refresh permissions after returning from camera
+      await checkPermissions();
+      
       Alert.alert('Success', 'Image saved successfully!');
     } catch (error) {
       console.error('Error saving image:', error);
@@ -170,8 +173,10 @@ function AppContent() {
                     styles.cameraButton,
                     !appState.permissions.camera && styles.disabledButton
                   ]}
-                  onPress={() => {
+                  onPress={async () => {
                     console.log('Camera button pressed, current permissions:', appState.permissions);
+                    // Refresh permissions before opening camera
+                    await checkPermissions();
                     setCurrentScreen('camera');
                   }}
                   disabled={false} // Allow camera button to work, handle permissions in camera view

@@ -45,32 +45,48 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
   const initializeCamera = async () => {
     try {
       setIsLoading(true);
+      console.log('Initializing camera...');
       
-      // Check permissions
-      const permissions = await permissionService.checkAllPermissions();
-      setHasPermission(permissions.camera && permissions.location);
+      // First check current permission status
+      const currentPermissions = await permissionService.arePermissionsGranted();
+      console.log('Current permissions:', currentPermissions);
+      
+      // If permissions are not granted, request them
+      if (!currentPermissions.camera || !currentPermissions.location) {
+        console.log('Requesting permissions...');
+        const permissions = await permissionService.checkAllPermissions();
+        console.log('Permission request result:', permissions);
+        setHasPermission(permissions.camera && permissions.location);
 
-      if (!permissions.camera) {
-        Alert.alert('Permission Required', 'Camera permission is required to take photos.');
-        onClose();
-        return;
-      }
+        if (!permissions.camera) {
+          Alert.alert('Permission Required', 'Camera permission is required to take photos.');
+          onClose();
+          return;
+        }
 
-      if (!permissions.location) {
-        Alert.alert('Permission Required', 'Location permission is required for geo-tagging.');
-        onClose();
-        return;
+        if (!permissions.location) {
+          Alert.alert('Permission Required', 'Location permission is required for geo-tagging.');
+          onClose();
+          return;
+        }
+      } else {
+        console.log('Permissions already granted');
+        setHasPermission(true);
       }
 
       // Check if location services are enabled
+      console.log('Checking location services...');
       const locationEnabled = await locationService.isLocationEnabled();
       setIsLocationEnabled(locationEnabled);
+      console.log('Location enabled:', locationEnabled);
 
       if (locationEnabled) {
         // Get current location
         try {
+          console.log('Getting current location...');
           const location = await locationService.getCurrentLocation();
           setCurrentLocation(location);
+          console.log('Location obtained:', location);
         } catch (error) {
           console.warn('Failed to get initial location:', error);
         }
@@ -78,6 +94,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
         // Start watching location
         locationService.watchLocation(
           (location) => {
+            console.log('Location updated:', location);
             setCurrentLocation(location);
           },
           (error) => {
@@ -85,9 +102,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
           }
         );
       }
+      
+      console.log('Camera initialization completed successfully');
     } catch (error) {
       console.error('Camera initialization error:', error);
-      Alert.alert('Error', 'Failed to initialize camera');
+      Alert.alert('Error', 'Failed to initialize camera: ' + error.message);
       onClose();
     } finally {
       setIsLoading(false);
@@ -95,18 +114,28 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
   };
 
   const takePhoto = async () => {
-    if (!camera.current || !hasPermission) {
-      Alert.alert('Error', 'Camera not ready');
+    console.log('Take photo called, camera:', !!camera.current, 'hasPermission:', hasPermission);
+    
+    if (!camera.current) {
+      Alert.alert('Error', 'Camera not initialized. Please try again.');
+      return;
+    }
+    
+    if (!hasPermission) {
+      Alert.alert('Error', 'Camera permission not granted. Please retry.');
       return;
     }
 
     try {
       setIsLoading(true);
+      console.log('Taking photo...');
       
       const photo = await camera.current.takePhoto({
         qualityPrioritization: 'quality',
         flash: 'off',
       });
+
+      console.log('Photo captured:', photo);
 
       const imageMetadata: ImageMetadata = {
         uri: `file://${photo.path}`,
@@ -116,10 +145,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
         location: currentLocation || undefined,
       };
 
+      console.log('Image metadata created:', imageMetadata);
       onImageCaptured(imageMetadata);
     } catch (error) {
       console.error('Photo capture error:', error);
-      Alert.alert('Error', 'Failed to capture photo');
+      Alert.alert('Error', 'Failed to capture photo: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -157,7 +187,10 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Camera permission required</Text>
-        <TouchableOpacity style={styles.button} onPress={onClose}>
+        <TouchableOpacity style={styles.button} onPress={initializeCamera}>
+          <Text style={styles.buttonText}>Retry</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.button, { marginTop: 10, backgroundColor: '#666' }]} onPress={onClose}>
           <Text style={styles.buttonText}>Close</Text>
         </TouchableOpacity>
       </View>
@@ -168,7 +201,10 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Camera not available</Text>
-        <TouchableOpacity style={styles.button} onPress={onClose}>
+        <TouchableOpacity style={styles.button} onPress={initializeCamera}>
+          <Text style={styles.buttonText}>Retry</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.button, { marginTop: 10, backgroundColor: '#666' }]} onPress={onClose}>
           <Text style={styles.buttonText}>Close</Text>
         </TouchableOpacity>
       </View>
