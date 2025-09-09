@@ -141,7 +141,9 @@ export class PermissionService {
         android: PERMISSIONS.ANDROID.CAMERA,
       }) as Permission;
 
+      console.log('Checking camera permission:', permission);
       const result = await check(permission);
+      console.log('Camera permission result:', result);
       return result === RESULTS.GRANTED;
     } catch (error) {
       console.error('Error checking camera permission:', error);
@@ -159,7 +161,9 @@ export class PermissionService {
         android: PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION,
       }) as Permission;
 
+      console.log('Checking location permission:', permission);
       const result = await check(permission);
+      console.log('Location permission result:', result);
       return result === RESULTS.GRANTED;
     } catch (error) {
       console.error('Error checking location permission:', error);

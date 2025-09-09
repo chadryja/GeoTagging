@@ -62,10 +62,31 @@ function AppContent() {
 
   const checkPermissions = async () => {
     try {
+      console.log('Checking permissions...');
       const permissions = await permissionService.arePermissionsGranted();
+      console.log('Permission check result:', permissions);
       setAppState(prev => ({ ...prev, permissions }));
     } catch (error) {
       console.error('Permission check error:', error);
+    }
+  };
+
+  const requestPermissions = async () => {
+    try {
+      console.log('Requesting permissions...');
+      const permissions = await permissionService.checkAllPermissions();
+      console.log('Permission request result:', permissions);
+      setAppState(prev => ({ ...prev, permissions }));
+      
+      // Show alert with permission status
+      Alert.alert(
+        'Permission Status',
+        `Camera: ${permissions.camera ? 'Granted' : 'Denied'}\nLocation: ${permissions.location ? 'Granted' : 'Denied'}`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Permission request error:', error);
+      Alert.alert('Error', 'Failed to check permissions');
     }
   };
 
@@ -137,16 +158,35 @@ function AppContent() {
           <View style={styles.container}>
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Geo-Tagging</Text>
-              <TouchableOpacity
-                style={[
-                  styles.cameraButton,
-                  !appState.permissions.camera && styles.disabledButton
-                ]}
-                onPress={() => setCurrentScreen('camera')}
-                disabled={!appState.permissions.camera}
-              >
-                <Text style={styles.cameraButtonText}>📷</Text>
-              </TouchableOpacity>
+              <View style={styles.headerButtons}>
+                <TouchableOpacity
+                  style={styles.permissionButton}
+                  onPress={requestPermissions}
+                >
+                  <Text style={styles.permissionButtonText}>Request Permissions</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.cameraButton,
+                    !appState.permissions.camera && styles.disabledButton
+                  ]}
+                  onPress={() => {
+                    console.log('Camera button pressed, current permissions:', appState.permissions);
+                    setCurrentScreen('camera');
+                  }}
+                  disabled={false} // Allow camera button to work, handle permissions in camera view
+                >
+                  <Text style={styles.cameraButtonText}>📷</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            {/* Permission Status Debug */}
+            <View style={styles.debugContainer}>
+              <Text style={styles.debugText}>
+                Camera: {appState.permissions.camera ? '✅' : '❌'} | 
+                Location: {appState.permissions.location ? '✅' : '❌'}
+              </Text>
             </View>
             
             {appState.isLoading && (
@@ -186,6 +226,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
@@ -209,6 +254,29 @@ const styles = StyleSheet.create({
   },
   cameraButtonText: {
     fontSize: 24,
+  },
+  permissionButton: {
+    backgroundColor: '#34C759',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  permissionButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  debugContainer: {
+    backgroundColor: '#f0f0f0',
+    padding: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 4,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
   },
   loadingOverlay: {
     position: 'absolute',
