@@ -24,12 +24,13 @@ interface CameraViewProps {
 export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose }) => {
   const camera = useRef<Camera>(null);
   const devices = useCameraDevices();
-  const device = devices.back;
+  const device = devices.find(d => d.position === 'back');
   
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
   const [hasPermission, setHasPermission] = useState(false);
   const [isLocationEnabled, setIsLocationEnabled] = useState(false);
+  const [cameraInitialized, setCameraInitialized] = useState(false);
 
   const locationService = LocationService.getInstance();
   const cameraService = CameraService.getInstance();
@@ -42,10 +43,20 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
     };
   }, []);
 
+  // Handle device changes
+  useEffect(() => {
+    console.log('Device changed:', device);
+    if (device && hasPermission) {
+      setCameraInitialized(true);
+    }
+  }, [device, hasPermission]);
+
   const initializeCamera = async () => {
     try {
       setIsLoading(true);
       console.log('Initializing camera...');
+      console.log('Available devices:', devices);
+      console.log('Back device:', device);
       
       // First check current permission status
       const currentPermissions = await permissionService.arePermissionsGranted();
@@ -72,6 +83,21 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
       } else {
         console.log('Permissions already granted');
         setHasPermission(true);
+      }
+
+      // Wait a bit for camera devices to be available
+      await new Promise<void>(resolve => setTimeout(resolve, 1000));
+      
+      // Check if camera device is available
+      console.log('Checking camera device availability...');
+      console.log('Devices after wait:', devices);
+      console.log('Back device after wait:', device);
+      
+      if (!device) {
+        console.error('No camera device available');
+        Alert.alert('Camera Error', 'No camera device found. Please check if your device has a camera.');
+        onClose();
+        return;
       }
 
       // Check if location services are enabled
@@ -103,10 +129,11 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
         );
       }
       
+      setCameraInitialized(true);
       console.log('Camera initialization completed successfully');
     } catch (error) {
       console.error('Camera initialization error:', error);
-      Alert.alert('Error', 'Failed to initialize camera: ' + error.message);
+      Alert.alert('Error', 'Failed to initialize camera: ' + (error as Error).message);
       onClose();
     } finally {
       setIsLoading(false);
@@ -131,7 +158,6 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
       console.log('Taking photo...');
       
       const photo = await camera.current.takePhoto({
-        qualityPrioritization: 'quality',
         flash: 'off',
       });
 
@@ -149,7 +175,7 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
       onImageCaptured(imageMetadata);
     } catch (error) {
       console.error('Photo capture error:', error);
-      Alert.alert('Error', 'Failed to capture photo: ' + error.message);
+      Alert.alert('Error', 'Failed to capture photo: ' + (error as Error).message);
     } finally {
       setIsLoading(false);
     }
@@ -197,10 +223,12 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
     );
   }
 
-  if (!device) {
+  if (!device || !cameraInitialized) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Camera not available</Text>
+        <Text style={styles.errorText}>
+          {!device ? 'Camera not available' : 'Initializing camera...'}
+        </Text>
         <TouchableOpacity style={styles.button} onPress={initializeCamera}>
           <Text style={styles.buttonText}>Retry</Text>
         </TouchableOpacity>
@@ -219,8 +247,19 @@ export const CameraView: React.FC<CameraViewProps> = ({ onImageCaptured, onClose
         device={device}
         isActive={true}
         photo={true}
+        enableZoomGesture={true}
+        enableFpsGraph={false}
       />
       
+      {/* Debug Status */}
+      <View style={styles.debugStatus}>
+        <Text style={styles.debugText}>
+          Device: {device ? '✅' : '❌'} | 
+          Permission: {hasPermission ? '✅' : '❌'} | 
+          Init: {cameraInitialized ? '✅' : '❌'}
+        </Text>
+      </View>
+
       {/* Location Status */}
       <View style={styles.locationStatus}>
         <Text style={styles.locationText}>
@@ -287,9 +326,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
+  debugStatus: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 8,
+    borderRadius: 6,
+  },
   locationStatus: {
     position: 'absolute',
-    top: 50,
+    top: 80,
     left: 20,
     right: 20,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
@@ -300,6 +348,12 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     textAlign: 'center',
+  },
+  debugText: {
+    color: 'white',
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
   controls: {
     position: 'absolute',
